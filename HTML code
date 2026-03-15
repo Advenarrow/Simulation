@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RescueNet 2.0 — Rural Emergency Communication Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050d14;
+    --panel: #0a1a26;
+    --border: #0e3a52;
+    --accent: #00e5ff;
+    --accent2: #ff4d6d;
+    --accent3: #39ff14;
+    --accent4: #ffbe00;
+    --accent5: #a855f7;
+    --accent6: #ff8c00;
+    --text: #cde8f5;
+    --muted: #4a7a96;
+    --lora: #ff8c00;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Share Tech Mono', monospace; min-height: 100vh; overflow-x: hidden; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,229,255,0.012) 2px, rgba(0,229,255,0.012) 4px);
+    pointer-events: none; z-index: 9998;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 24px; border-bottom: 1px solid var(--border);
+    background: rgba(10,26,38,0.97); position: sticky; top: 0; z-index: 200;
+  }
+  .logo { font-family: 'Syne', sans-serif; font-size: 1.4rem; font-weight: 800; letter-spacing: 2px; color: var(--accent); }
+  .logo span { color: var(--accent2); }
+  .logo-sub { font-size: 0.55rem; color: var(--muted); letter-spacing: 3px; text-transform: uppercase; margin-top: 2px; }
+  .hdr-right { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .pill { font-size: 0.6rem; padding: 3px 10px; border-radius: 20px; border: 1px solid var(--border); color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+  .pill.live { border-color: var(--accent3); color: var(--accent3); animation: blink 2s infinite; }
+  .pill.lora-pill { border-color: var(--lora); color: var(--lora); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  /* NAV TABS */
+  .nav-tabs { display: flex; border-bottom: 1px solid var(--border); background: rgba(10,26,38,0.9); position: sticky; top: 57px; z-index: 199; }
+  .nav-tab {
+    padding: 10px 22px; font-size: 0.65rem; letter-spacing: 2px; text-transform: uppercase;
+    cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent;
+    transition: all 0.2s; font-family: 'Syne', sans-serif; font-weight: 700;
+  }
+  .nav-tab:hover { color: var(--text); }
+  .nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* PAGES */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── SIMULATOR PAGE ── */
+  .sim-layout {
+    display: grid; grid-template-columns: 270px 1fr 290px;
+    height: calc(100vh - 100px);
+  }
+
+  .left-panel { border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
+  .right-panel { border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+
+  .psec { border-bottom: 1px solid var(--border); padding: 14px 16px; }
+  .psec-title { font-family: 'Syne', sans-serif; font-size: 0.55rem; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+
+  /* SOS */
+  .sos-btn {
+    width: 100%; padding: 16px; background: transparent; border: 2px solid var(--accent2);
+    color: var(--accent2); font-family: 'Syne', sans-serif; font-size: 1.5rem; font-weight: 800;
+    letter-spacing: 6px; cursor: pointer; border-radius: 4px; transition: all .2s;
+  }
+  .sos-btn:hover { background: rgba(255,77,109,.1); box-shadow: 0 0 30px rgba(255,77,109,.3); }
+  .sos-btn.active { background: var(--accent2); color: #fff; animation: redpulse .8s infinite; }
+  @keyframes redpulse { 0%,100%{box-shadow:0 0 20px rgba(255,77,109,.6)} 50%{box-shadow:0 0 50px rgba(255,77,109,1)} }
+
+  .voice-btn {
+    width: 100%; padding: 10px; margin-top: 8px; background: transparent;
+    border: 1px solid var(--accent); color: var(--accent);
+    font-family: 'Share Tech Mono', monospace; font-size: 0.8rem;
+    cursor: pointer; border-radius: 4px; transition: all .2s;
+    display: flex; align-items: center; gap: 8px; justify-content: center;
+  }
+  .voice-btn:hover { background: rgba(0,229,255,.08); }
+  .voice-btn.recording { border-color: var(--accent2); color: var(--accent2); animation: redpulse 1s infinite; }
+  .vbar { display: flex; gap: 3px; align-items: center; height: 18px; }
+  .vbar span { width: 3px; background: var(--accent2); border-radius: 2px; animation: vwave .5s ease-in-out infinite alternate; }
+  .vbar span:nth-child(2){animation-delay:.1s} .vbar span:nth-child(3){animation-delay:.2s} .vbar span:nth-child(4){animation-delay:.3s} .vbar span:nth-child(5){animation-delay:.4s}
+  @keyframes vwave { from{height:3px} to{height:16px} }
+  .vtranscript { margin-top:8px; padding:8px; background:rgba(0,229,255,.05); border:1px solid rgba(0,229,255,.15); border-radius:4px; font-size:.68rem; line-height:1.5; display:none; }
+
+  /* LORA button */
+  .lora-btn {
+    width: 100%; padding: 10px; margin-top: 8px; background: transparent;
+    border: 1px solid var(--lora); color: var(--lora);
+    font-family: 'Share Tech Mono', monospace; font-size: 0.8rem;
+    cursor: pointer; border-radius: 4px; transition: all .2s;
+  }
+  .lora-btn:hover { background: rgba(255,140,0,.1); box-shadow: 0 0 20px rgba(255,140,0,.2); }
+  .lora-btn.active { background: var(--lora); color: #000; }
+
+  /* Emergency Override */
+  .override-btn {
+    width: 100%; padding: 10px; margin-top: 8px; background: transparent;
+    border: 1px solid var(--accent5); color: var(--accent5);
+    font-family: 'Share Tech Mono', monospace; font-size: 0.8rem;
+    cursor: pointer; border-radius: 4px; transition: all .2s;
+  }
+  .override-btn:hover { background: rgba(168,85,247,.1); }
+  .override-btn.active { background: var(--accent5); color: #fff; animation: purplepulse 1s infinite; }
+  @keyframes purplepulse { 0%,100%{box-shadow:0 0 15px rgba(168,85,247,.5)} 50%{box-shadow:0 0 40px rgba(168,85,247,1)} }
+
+  /* mode/scene buttons */
+  .mbtn-group { display: flex; flex-direction: column; gap: 6px; }
+  .mbtn {
+    padding: 9px 12px; background: transparent; border: 1px solid var(--border);
+    color: var(--muted); font-family: 'Share Tech Mono', monospace; font-size: 0.68rem;
+    cursor: pointer; border-radius: 4px; transition: all .2s; text-align: left;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .mbtn:hover { border-color: var(--accent); color: var(--accent); }
+  .mbtn.active { border-color: var(--accent); color: var(--accent); background: rgba(0,229,255,.07); }
+  .mbtn .mdot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+  .mbtn.active .mdot { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  .mbtn.lora-mode { border-color: var(--lora); color: var(--lora); }
+  .mbtn.lora-mode .mdot { background: var(--lora); box-shadow: 0 0 6px var(--lora); }
+
+  /* Legend */
+  .legend { display: flex; flex-direction: column; gap: 8px; }
+  .leg-item { display: flex; align-items: center; gap: 9px; font-size: 0.65rem; line-height: 1.3; }
+  .leg-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+
+  /* MAP */
+  .map-area {
+    position: relative; overflow: hidden;
+    background:
+      radial-gradient(ellipse at 25% 35%, rgba(0,229,255,.04) 0%, transparent 55%),
+      radial-gradient(ellipse at 75% 65%, rgba(57,255,20,.03) 0%, transparent 55%),
+      radial-gradient(ellipse at 50% 80%, rgba(255,140,0,.02) 0%, transparent 40%),
+      var(--bg);
+  }
+  .map-grid {
+    position: absolute; inset: 0;
+    background-image: linear-gradient(rgba(0,229,255,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,229,255,.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  .map-top-label {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    font-size: 0.55rem; letter-spacing: 4px; text-transform: uppercase;
+    color: var(--muted); background: var(--bg); padding: 3px 14px;
+    border: 1px solid var(--border); border-radius: 20px; white-space: nowrap;
+  }
+  svg#nmap { width: 100%; height: 100%; position: absolute; inset: 0; }
+  .signal-path { stroke-dasharray: 6 4; animation: dashflow 1s linear infinite; }
+  @keyframes dashflow { to { stroke-dashoffset: -20; } }
+  .lora-path { stroke-dasharray: 10 5; animation: loradash 1.5s linear infinite; }
+  @keyframes loradash { to { stroke-dashoffset: -30; } }
+  .node-g { cursor: pointer; }
+  .node-g:hover circle { filter: brightness(1.5); }
+
+  /* LOG */
+  .log-header { padding: 12px 16px; border-bottom: 1px solid var(--border); font-family: 'Syne', sans-serif; font-size: 0.55rem; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; }
+  .log-clear { cursor: pointer; color: var(--muted); } .log-clear:hover { color: var(--accent2); }
+  .log-body { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 5px; }
+  .log-entry { padding: 7px 9px; border-radius: 3px; font-size: 0.65rem; border-left: 3px solid var(--border); background: rgba(255,255,255,.02); animation: loginanim .3s ease; line-height: 1.4; }
+  @keyframes loginanim { from{opacity:0;transform:translateX(8px)} to{opacity:1;transform:none} }
+  .log-entry.sos { border-color: var(--accent2); background: rgba(255,77,109,.07); }
+  .log-entry.relay { border-color: var(--accent4); background: rgba(255,190,0,.05); }
+  .log-entry.gateway { border-color: var(--accent3); background: rgba(57,255,20,.05); }
+  .log-entry.sms { border-color: var(--accent5); background: rgba(168,85,247,.05); }
+  .log-entry.lora { border-color: var(--lora); background: rgba(255,140,0,.06); }
+  .log-entry.rescue { border-color: var(--accent); background: rgba(0,229,255,.05); }
+  .log-entry.override { border-color: var(--accent5); background: rgba(168,85,247,.1); }
+  .log-time { color: var(--muted); font-size: 0.58rem; }
+  .stats-bar { padding: 10px 14px; border-top: 1px solid var(--border); display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .stat { text-align: center; }
+  .stat-val { font-family: 'Syne', sans-serif; font-size: 1.2rem; font-weight: 800; color: var(--accent); }
+  .stat-val.r { color: var(--accent2); } .stat-val.g { color: var(--accent3); } .stat-val.y { color: var(--accent4); } .stat-val.o { color: var(--lora); }
+  .stat-lbl { font-size: 0.5rem; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+
+  /* ALERT POPUP */
+  .alert-popup {
+    position: fixed; top: 110px; right: 310px;
+    background: var(--panel); border: 2px solid var(--accent3); border-radius: 8px;
+    padding: 14px 18px; max-width: 260px; z-index: 300;
+    display: none; animation: popin .4s cubic-bezier(.34,1.56,.64,1);
+    box-shadow: 0 0 40px rgba(57,255,20,.3);
+  }
+  .alert-popup.show { display: block; }
+  @keyframes popin { from{opacity:0;transform:scale(.8) translateY(-16px)} to{opacity:1;transform:none} }
+  .alert-popup.lora-alert { border-color: var(--lora); box-shadow: 0 0 40px rgba(255,140,0,.3); }
+  .alert-popup.override-alert { border-color: var(--accent5); box-shadow: 0 0 40px rgba(168,85,247,.4); }
+  .alert-title { font-family: 'Syne', sans-serif; font-size: 0.8rem; font-weight: 700; color: var(--accent3); margin-bottom: 5px; }
+  .alert-popup.lora-alert .alert-title { color: var(--lora); }
+  .alert-popup.override-alert .alert-title { color: var(--accent5); }
+  .alert-body { font-size: 0.67rem; line-height: 1.6; color: var(--text); }
+  .alert-close { position: absolute; top: 7px; right: 10px; cursor: pointer; color: var(--muted); }
+  .sms-badge { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); font-size: 0.58rem; letter-spacing: 2px; color: var(--accent5); background: rgba(168,85,247,.15); border: 1px solid var(--accent5); border-radius: 20px; padding: 3px 10px; display: none; }
+  .lora-badge { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); font-size: 0.58rem; letter-spacing: 2px; color: var(--lora); background: rgba(255,140,0,.15); border: 1px solid var(--lora); border-radius: 20px; padding: 3px 10px; display: none; }
+  .override-badge { position: absolute; bottom: 64px; left: 50%; transform: translateX(-50%); font-size: 0.58rem; letter-spacing: 2px; color: var(--accent5); background: rgba(168,85,247,.2); border: 1px solid var(--accent5); border-radius: 20px; padding: 3px 10px; display: none; animation: purplepulse 1s infinite; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: var(--bg); } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* ── LEARN PAGE ── */
+  .learn-page { padding: 30px; max-width: 1100px; margin: 0 auto; }
+  .learn-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 24px; }
+  .learn-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 22px; transition: border-color .3s;
+    position: relative; overflow: hidden;
+  }
+  .learn-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+  .learn-card.cyan::before { background: var(--accent); }
+  .learn-card.orange::before { background: var(--lora); }
+  .learn-card.green::before { background: var(--accent3); }
+  .learn-card.purple::before { background: var(--accent5); }
+  .learn-card.red::before { background: var(--accent2); }
+  .learn-card.yellow::before { background: var(--accent4); }
+  .learn-card:hover { border-color: var(--muted); }
+  .card-icon { font-size: 2rem; margin-bottom: 12px; }
+  .card-title { font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 800; margin-bottom: 6px; }
+  .learn-card.cyan .card-title { color: var(--accent); }
+  .learn-card.orange .card-title { color: var(--lora); }
+  .learn-card.green .card-title { color: var(--accent3); }
+  .learn-card.purple .card-title { color: var(--accent5); }
+  .learn-card.red .card-title { color: var(--accent2); }
+  .learn-card.yellow .card-title { color: var(--accent4); }
+  .card-subtitle { font-size: 0.6rem; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 12px; }
+  .card-body { font-size: 0.72rem; line-height: 1.8; color: var(--text); }
+  .card-body b { color: var(--accent); }
+  .spec-table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.65rem; }
+  .spec-table td { padding: 5px 8px; border: 1px solid var(--border); }
+  .spec-table td:first-child { color: var(--muted); width: 45%; }
+  .spec-table td:last-child { color: var(--text); }
+  .flow-steps { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .flow-step { display: flex; gap: 10px; align-items: flex-start; font-size: 0.68rem; line-height: 1.5; }
+  .step-num { width: 20px; height: 20px; border-radius: 50%; background: var(--border); display: flex; align-items: center; justify-content: center; font-size: 0.6rem; flex-shrink: 0; color: var(--accent); font-family: 'Syne', sans-serif; font-weight: 700; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.6rem; margin: 2px; }
+  .tag.cyan { background: rgba(0,229,255,.15); color: var(--accent); border: 1px solid rgba(0,229,255,.3); }
+  .tag.orange { background: rgba(255,140,0,.15); color: var(--lora); border: 1px solid rgba(255,140,0,.3); }
+  .tag.green { background: rgba(57,255,20,.15); color: var(--accent3); border: 1px solid rgba(57,255,20,.3); }
+  .tag.purple { background: rgba(168,85,247,.15); color: var(--accent5); border: 1px solid rgba(168,85,247,.3); }
+  .tag.red { background: rgba(255,77,109,.15); color: var(--accent2); border: 1px solid rgba(255,77,109,.3); }
+
+  .learn-title { font-family: 'Syne', sans-serif; font-size: 1.6rem; font-weight: 800; color: var(--accent); }
+  .learn-sub { font-size: 0.65rem; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-top: 4px; }
+  .compare-table { width: 100%; border-collapse: collapse; font-size: 0.68rem; margin-top: 20px; }
+  .compare-table th { padding: 10px 12px; background: rgba(0,229,255,.08); border: 1px solid var(--border); font-family: 'Syne', sans-serif; font-weight: 700; color: var(--accent); text-align: left; }
+  .compare-table td { padding: 9px 12px; border: 1px solid var(--border); line-height: 1.4; }
+  .compare-table tr:hover td { background: rgba(255,255,255,.02); }
+  .good { color: var(--accent3); } .mid { color: var(--accent4); } .bad { color: var(--accent2); }
+
+  /* ── ARCHITECTURE PAGE ── */
+  .arch-page { padding: 30px; max-width: 900px; margin: 0 auto; }
+  .arch-flow { display: flex; flex-direction: column; gap: 12px; margin-top: 24px; }
+  .arch-layer {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+    padding: 16px 20px; display: flex; gap: 16px; align-items: flex-start;
+  }
+  .arch-icon { font-size: 1.8rem; flex-shrink: 0; }
+  .arch-name { font-family: 'Syne', sans-serif; font-size: 0.9rem; font-weight: 800; margin-bottom: 4px; }
+  .arch-desc { font-size: 0.68rem; line-height: 1.7; color: var(--text); }
+  .arch-tags { margin-top: 6px; }
+  .arch-arrow { text-align: center; color: var(--muted); font-size: 1.2rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">Rescue<span>Net</span> <span style="font-size:.8rem;color:var(--accent4)">2.0</span></div>
+    <div class="logo-sub">Rural Emergency Communication System — Niral Thiruvizha 3.0 | Problem #35</div>
+  </div>
+  <div class="hdr-right">
+    <div class="pill live">● SIM LIVE</div>
+    <div class="pill lora-pill">📡 LoRa ENABLED</div>
+    <div class="pill" id="mode-pill">MESH MODE</div>
+    <div class="pill" id="sig-pill">NO COVERAGE</div>
+  </div>
+</header>
+
+<!-- NAV -->
+<div class="nav-tabs">
+  <div class="nav-tab active" onclick="showPage('sim')">🗺 Simulator</div>
+  <div class="nav-tab" onclick="showPage('learn')">📖 How It Works</div>
+  <div class="nav-tab" onclick="showPage('arch')">🏗 Architecture</div>
+</div>
+
+<!-- ═══════════════════ SIMULATOR PAGE ═══════════════════ -->
+<div id="page-sim" class="page active">
+<div class="sim-layout">
+
+  <!-- LEFT -->
+  <div class="left-panel">
+
+    <div class="psec">
+      <div class="psec-title">⚠ Emergency Triggers</div>
+      <button class="sos-btn" id="sos-btn" onclick="triggerSOS()">⚠ SOS</button>
+      <button class="voice-btn" id="voice-btn" onclick="triggerVoice()">🎤 VOICE SOS</button>
+      <div class="vtranscript" id="vtranscript"></div>
+      <button class="lora-btn" id="lora-btn" onclick="triggerLoRa()">📡 LoRa LONG-RANGE SOS</button>
+      <button class="override-btn" id="override-btn" onclick="triggerOverride()">🔴 EMERGENCY OVERRIDE</button>
+    </div>
+
+    <div class="psec">
+      <div class="psec-title">📡 Transmission Mode</div>
+      <div class="mbtn-group">
+        <button class="mbtn active" id="mode-mesh" onclick="setMode('mesh')"><div class="mdot"></div>Bluetooth Mesh Hop</button>
+        <button class="mbtn" id="mode-lora" onclick="setMode('lora')"><div class="mdot" style="background:var(--lora)"></div><span style="color:var(--lora)">LoRa Long-Range Radio</span></button>
+        <button class="mbtn" id="mode-sms" onclick="setMode('sms')"><div class="mdot"></div>2G SMS Fallback</button>
+        <button class="mbtn" id="mode-hybrid" onclick="setMode('hybrid')"><div class="mdot"></div>Hybrid Auto-Select</button>
+      </div>
+    </div>
+
+    <div class="psec">
+      <div class="psec-title">🌐 Network Scenario</div>
+      <div class="mbtn-group">
+        <button class="mbtn active" id="scene-normal" onclick="setScene('normal')"><div class="mdot"></div>Full Mesh Available</button>
+        <button class="mbtn" id="scene-partial" onclick="setScene('partial')"><div class="mdot"></div>2 Relay Nodes Down</button>
+        <button class="mbtn" id="scene-loraonly" onclick="setScene('loraonly')"><div class="mdot"></div>Mesh Failed — LoRa Only</button>
+        <button class="mbtn" id="scene-smsonly" onclick="setScene('smsonly')"><div class="mdot"></div>All Failed — 2G Only</button>
+        <button class="mbtn" id="scene-total" onclick="setScene('total')"><div class="mdot"></div>Total Blackout (Override)</button>
+      </div>
+    </div>
+
+    <div class="psec">
+      <div class="psec-title">🗺 Legend</div>
+      <div class="legend">
+        <div class="leg-item"><div class="leg-dot" style="background:#00e5ff;box-shadow:0 0 6px #00e5ff"></div>User Phone (SOS Source)</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#ffbe00;box-shadow:0 0 6px #ffbe00"></div>BT Relay Node (Mesh Hop)</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#ff8c00;box-shadow:0 0 6px #ff8c00"></div>LoRa Node (Long-Range)</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#39ff14;box-shadow:0 0 6px #39ff14"></div>Gateway (Internet Access)</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#ff4d6d;box-shadow:0 0 6px #ff4d6d"></div>Rescue HQ Dashboard</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#a855f7;box-shadow:0 0 6px #a855f7"></div>2G SMS Path</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#a855f7;border-radius:2px"></div>Emergency Override (Broadcast)</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MAP -->
+  <div class="map-area" id="map-area">
+    <div class="map-grid"></div>
+    <div class="map-top-label" id="map-label">FOREST / HILL ZONE — ZERO NETWORK COVERAGE</div>
+
+    <svg id="nmap" viewBox="0 0 720 520">
+      <defs>
+        <filter id="gc"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <filter id="gy"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <filter id="gg"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <filter id="gr"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <filter id="go"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+
+      <!-- Terrain -->
+      <ellipse cx="360" cy="260" rx="290" ry="210" fill="rgba(0,229,255,0.012)" stroke="rgba(0,229,255,0.04)" stroke-width="1"/>
+      <text x="130" y="150" font-size="55" opacity="0.055" fill="#39ff14">🌲</text>
+      <text x="500" y="110" font-size="50" opacity="0.055" fill="#39ff14">⛰</text>
+      <text x="270" y="420" font-size="45" opacity="0.055" fill="#39ff14">🌲</text>
+      <text x="60" y="280" font-size="40" opacity="0.04" fill="#39ff14">🏔</text>
+
+      <!-- Range indicator for LoRa (hidden by default) -->
+      <circle id="lora-range" cx="200" cy="360" r="0" fill="none" stroke="#ff8c00" stroke-width="1" stroke-dasharray="4 4" opacity="0"/>
+
+      <!-- Static connection lines -->
+      <g opacity="1">
+        <!-- Mesh lines -->
+        <line x1="120" y1="390" x2="230" y2="290" stroke="rgba(0,229,255,.1)" stroke-width="1" stroke-dasharray="4 4"/>
+        <line x1="230" y1="290" x2="360" y2="210" stroke="rgba(0,229,255,.1)" stroke-width="1" stroke-dasharray="4 4"/>
+        <line x1="360" y1="210" x2="490" y2="270" stroke="rgba(0,229,255,.1)" stroke-width="1" stroke-dasharray="4 4"/>
+        <line x1="490" y1="270" x2="600" y2="150" stroke="rgba(0,229,255,.1)" stroke-width="1" stroke-dasharray="4 4"/>
+        <!-- Alt mesh line -->
+        <line x1="230" y1="290" x2="360" y2="360" stroke="rgba(0,229,255,.06)" stroke-width="1" stroke-dasharray="4 4"/>
+        <line x1="360" y1="360" x2="490" y2="270" stroke="rgba(0,229,255,.06)" stroke-width="1" stroke-dasharray="4 4"/>
+        <!-- LoRa static line -->
+        <line x1="120" y1="390" x2="600" y2="150" stroke="rgba(255,140,0,.06)" stroke-width="1" stroke-dasharray="8 5"/>
+      </g>
+
+      <!-- Animated signal paths -->
+      <g id="anim-paths">
+        <!-- Mesh hops -->
+        <line id="p1" x1="120" y1="390" x2="230" y2="290" stroke="#ffbe00" stroke-width="2" opacity="0" class="signal-path"/>
+        <line id="p2" x1="230" y1="290" x2="360" y2="210" stroke="#ffbe00" stroke-width="2" opacity="0" class="signal-path"/>
+        <line id="p3" x1="360" y1="210" x2="490" y2="270" stroke="#ffbe00" stroke-width="2" opacity="0" class="signal-path"/>
+        <line id="p4" x1="490" y1="270" x2="600" y2="150" stroke="#39ff14" stroke-width="2.5" opacity="0" class="signal-path"/>
+        <!-- Alt partial route -->
+        <line id="p-alt1" x1="120" y1="390" x2="230" y2="290" stroke="#ffbe00" stroke-width="2" opacity="0" class="signal-path"/>
+        <line id="p-alt2" x1="230" y1="290" x2="600" y2="150" stroke="#39ff14" stroke-width="2" opacity="0" class="signal-path"/>
+        <!-- LoRa direct -->
+        <line id="p-lora" x1="120" y1="390" x2="600" y2="150" stroke="#ff8c00" stroke-width="2.5" stroke-dasharray="10 5" opacity="0" class="lora-path"/>
+        <!-- 2G SMS -->
+        <line id="p-sms" x1="120" y1="390" x2="600" y2="150" stroke="#a855f7" stroke-width="2" stroke-dasharray="8 4" opacity="0" class="signal-path"/>
+        <!-- Gateway to Rescue -->
+        <line id="p-cloud" x1="600" y1="174" x2="640" y2="370" stroke="#39ff14" stroke-width="2" stroke-dasharray="6 4" opacity="0" class="signal-path"/>
+        <!-- Override broadcast lines -->
+        <line id="ov1" x1="120" y1="390" x2="230" y2="290" stroke="#a855f7" stroke-width="3" opacity="0" class="signal-path"/>
+        <line id="ov2" x1="120" y1="390" x2="360" y2="210" stroke="#a855f7" stroke-width="3" opacity="0" class="signal-path"/>
+        <line id="ov3" x1="120" y1="390" x2="490" y2="270" stroke="#a855f7" stroke-width="3" opacity="0" class="signal-path"/>
+        <line id="ov4" x1="120" y1="390" x2="600" y2="150" stroke="#a855f7" stroke-width="3" opacity="0" class="signal-path"/>
+        <line id="ov5" x1="120" y1="390" x2="640" y2="370" stroke="#a855f7" stroke-width="3" opacity="0" class="signal-path"/>
+      </g>
+
+      <!-- Moving packet -->
+      <circle id="pkt" cx="-20" cy="-20" r="7" fill="#ff4d6d" filter="url(#gr)" opacity="0"/>
+      <!-- Range ring -->
+      <circle id="range-ring" cx="120" cy="390" r="0" fill="none" stroke="#00e5ff" stroke-width="1" opacity="0"/>
+
+      <!-- NODE: USER -->
+      <g id="node-user" class="node-g" onclick="nodeInfo('user')">
+        <circle cx="120" cy="390" r="24" fill="rgba(0,229,255,.1)" stroke="#00e5ff" stroke-width="2" filter="url(#gc)"/>
+        <text x="120" y="397" text-anchor="middle" font-size="17">📱</text>
+        <text x="120" y="426" text-anchor="middle" font-size="9" fill="#00e5ff" font-family="Share Tech Mono">VICTIM</text>
+      </g>
+
+      <!-- NODE: RELAY 1 -->
+      <g id="node-r1" class="node-g" onclick="nodeInfo('r1')">
+        <circle cx="230" cy="290" r="18" fill="rgba(255,190,0,.1)" stroke="#ffbe00" stroke-width="2" filter="url(#gy)"/>
+        <text x="230" y="296" text-anchor="middle" font-size="13">📶</text>
+        <text x="230" y="320" text-anchor="middle" font-size="9" fill="#ffbe00" font-family="Share Tech Mono">BT RELAY 1</text>
+      </g>
+
+      <!-- NODE: RELAY 2 -->
+      <g id="node-r2" class="node-g" onclick="nodeInfo('r2')">
+        <circle cx="360" cy="210" r="18" fill="rgba(255,190,0,.1)" stroke="#ffbe00" stroke-width="2" filter="url(#gy)"/>
+        <text x="360" y="216" text-anchor="middle" font-size="13">📶</text>
+        <text x="360" y="240" text-anchor="middle" font-size="9" fill="#ffbe00" font-family="Share Tech Mono">BT RELAY 2</text>
+      </g>
+
+      <!-- NODE: RELAY 3 -->
+      <g id="node-r3" class="node-g" onclick="nodeInfo('r3')">
+        <circle cx="490" cy="270" r="18" fill="rgba(255,190,0,.1)" stroke="#ffbe00" stroke-width="2" filter="url(#gy)"/>
+        <text x="490" y="276" text-anchor="middle" font-size="13">📶</text>
+        <text x="490" y="300" text-anchor="middle" font-size="9" fill="#ffbe00" font-family="Share Tech Mono">BT RELAY 3</text>
+      </g>
+
+      <!-- NODE: LoRa -->
+      <g id="node-lora" class="node-g" onclick="nodeInfo('lora')">
+        <circle cx="200" cy="360" r="20" fill="rgba(255,140,0,.1)" stroke="#ff8c00" stroke-width="2" filter="url(#go)"/>
+        <text x="200" y="367" text-anchor="middle" font-size="14">📡</text>
+        <text x="200" y="392" text-anchor="middle" font-size="9" fill="#ff8c00" font-family="Share Tech Mono">LoRa NODE</text>
+      </g>
+
+      <!-- NODE: GATEWAY -->
+      <g id="node-gw" class="node-g" onclick="nodeInfo('gw')">
+        <circle cx="600" cy="150" r="24" fill="rgba(57,255,20,.1)" stroke="#39ff14" stroke-width="2.5" filter="url(#gg)"/>
+        <text x="600" y="157" text-anchor="middle" font-size="17">🔗</text>
+        <text x="600" y="188" text-anchor="middle" font-size="9" fill="#39ff14" font-family="Share Tech Mono">GATEWAY</text>
+      </g>
+
+      <!-- NODE: RESCUE -->
+      <g id="node-rescue" class="node-g" onclick="nodeInfo('rescue')">
+        <circle cx="640" cy="390" r="24" fill="rgba(255,77,109,.1)" stroke="#ff4d6d" stroke-width="2" filter="url(#gr)"/>
+        <text x="640" y="397" text-anchor="middle" font-size="17">🚨</text>
+        <text x="640" y="426" text-anchor="middle" font-size="9" fill="#ff4d6d" font-family="Share Tech Mono">RESCUE HQ</text>
+      </g>
+
+      <!-- Gateway↔Rescue static line -->
+      <line x1="600" y1="174" x2="640" y2="366" stroke="rgba(57,255,20,.15)" stroke-width="1" stroke-dasharray="4 4"/>
+
+      <!-- Down markers -->
+      <g id="dn-r2" opacity="0">
+        <line x1="347" y1="197" x2="373" y2="223" stroke="#ff4d6d" stroke-width="2.5"/>
+        <line x1="373" y1="197" x2="347" y2="223" stroke="#ff4d6d" stroke-width="2.5"/>
+      </g>
+      <g id="dn-r3" opacity="0">
+        <line x1="477" y1="257" x2="503" y2="283" stroke="#ff4d6d" stroke-width="2.5"/>
+        <line x1="503" y1="257" x2="477" y2="283" stroke="#ff4d6d" stroke-width="2.5"/>
+      </g>
+      <g id="dn-r1" opacity="0">
+        <line x1="217" y1="277" x2="243" y2="303" stroke="#ff4d6d" stroke-width="2.5"/>
+        <line x1="243" y1="277" x2="217" y2="303" stroke="#ff4d6d" stroke-width="2.5"/>
+      </g>
+    </svg>
+
+    <div class="sms-badge" id="sms-badge">2G SMS FALLBACK ACTIVE</div>
+    <div class="lora-badge" id="lora-badge">📡 LoRa LONG-RANGE ACTIVE</div>
+    <div class="override-badge" id="override-badge">🔴 EMERGENCY OVERRIDE BROADCAST</div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right-panel">
+    <div class="log-header">
+      <span>📡 Transmission Log</span>
+      <span class="log-clear" onclick="clearLog()">CLEAR</span>
+    </div>
+    <div class="log-body" id="log-body">
+      <div class="log-entry" style="color:var(--muted);font-size:.62rem;">System v2.0 ready. 4 transmission modes available.<br>Press any trigger to begin simulation...</div>
+    </div>
+    <div class="stats-bar">
+      <div class="stat"><div class="stat-val r" id="s-sos">0</div><div class="stat-lbl">SOS Sent</div></div>
+      <div class="stat"><div class="stat-val y" id="s-hops">0</div><div class="stat-lbl">Total Hops</div></div>
+      <div class="stat"><div class="stat-val g" id="s-del">0</div><div class="stat-lbl">Delivered</div></div>
+      <div class="stat"><div class="stat-val" id="s-time">—</div><div class="stat-lbl">Latency</div></div>
+      <div class="stat"><div class="stat-val o" id="s-lora">0</div><div class="stat-lbl">LoRa Tx</div></div>
+      <div class="stat"><div class="stat-val" style="color:var(--accent5)" id="s-ovr">0</div><div class="stat-lbl">Overrides</div></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════════ LEARN PAGE ═══════════════════ -->
+<div id="page-learn" class="page">
+<div class="learn-page">
+  <div class="learn-title">📖 How RescueNet Works</div>
+  <div class="learn-sub">Complete technical guide — all features explained clearly</div>
+
+  <div class="learn-grid">
+
+    <!-- LOCAL MESH NETWORK -->
+    <div class="learn-card cyan">
+      <div class="card-icon">📶</div>
+      <div class="card-title">Local Bluetooth Mesh Network</div>
+      <div class="card-subtitle">Short-Range Peer-to-Peer Communication</div>
+      <div class="card-body">
+        A <b>mesh network</b> connects devices directly to each other — no internet, no tower, no Wi-Fi needed.<br><br>
+        <b>How it works:</b>
+        <div class="flow-steps">
+          <div class="flow-step"><div class="step-num">1</div>Victim's phone sends SOS via <b>Bluetooth Low Energy (BLE)</b> — range ~50–100m</div>
+          <div class="flow-step"><div class="step-num">2</div>Nearest phone (relay node) <b>receives and re-broadcasts</b> — it doesn't need to know the destination</div>
+          <div class="flow-step"><div class="step-num">3</div>Message <b>hops from phone to phone</b> until it reaches a device with internet</div>
+          <div class="flow-step"><div class="step-num">4</div>Gateway device uploads the SOS to the <b>cloud rescue dashboard</b></div>
+        </div>
+        <br>
+        <b>Why it works in forests/hills:</b> Trees, mountains, rain — none of these block Bluetooth. As long as villagers, hikers, or field workers have phones, they become the network.
+        <br><br>
+        <span class="tag cyan">BLE 5.0</span><span class="tag cyan">No Internet</span><span class="tag cyan">Self-healing</span><span class="tag cyan">Free</span>
+      </div>
+    </div>
+
+    <!-- LORA -->
+    <div class="learn-card orange">
+      <div class="card-icon">📡</div>
+      <div class="card-title">LoRa Long-Range Radio</div>
+      <div class="card-subtitle">When Bluetooth Isn't Enough</div>
+      <div class="card-body">
+        <b>LoRa (Long Range)</b> is a radio technology that sends tiny data packets over enormous distances using very little power — like walkie-talkie meets internet protocol.<br><br>
+        <table class="spec-table">
+          <tr><td>Range</td><td><b>5–15 km</b> (line of sight), 2–5 km in forest</td></tr>
+          <tr><td>Power</td><td>Runs on <b>small solar panel</b> or AA battery for months</td></tr>
+          <tr><td>Data size</td><td>Up to 250 bytes per packet (SOS + GPS)</td></tr>
+          <tr><td>Cost</td><td><b>₹800–₹2000</b> per node (vs ₹50,000+ satellite)</td></tr>
+          <tr><td>Frequency</td><td>865–867 MHz (India approved)</td></tr>
+          <tr><td>Speed</td><td>0.3–50 kbps — only for emergency alerts</td></tr>
+        </table>
+        <br>
+        <b>When RescueNet uses LoRa:</b> When Bluetooth mesh fails (too few phones nearby), the LoRa node deployed at the village/trailhead automatically takes over and sends the SOS directly to the gateway — up to 10 km away.
+        <br><br>
+        <span class="tag orange">Solar Powered</span><span class="tag orange">10km Range</span><span class="tag orange">₹1500/node</span>
+      </div>
+    </div>
+
+    <!-- 2G SMS -->
+    <div class="learn-card purple">
+      <div class="card-icon">✉</div>
+      <div class="card-title">2G SMS Fallback</div>
+      <div class="card-subtitle">Last Resort — Always Works</div>
+      <div class="card-body">
+        Even in areas with zero 4G/3G, <b>2G signal often exists</b> as BSNL/Airtel maintain 2G towers for voice calls in remote India. RescueNet exploits this.<br><br>
+        <b>How it works:</b>
+        <div class="flow-steps">
+          <div class="flow-step"><div class="step-num">1</div>RescueNet app detects weak 2G signal (even -110 dBm is enough)</div>
+          <div class="flow-step"><div class="step-num">2</div>SOS packet is <b>compressed to under 160 bytes</b> — exactly one SMS</div>
+          <div class="flow-step"><div class="step-num">3</div>SMS is sent to a <b>dedicated server number</b> — no internet required</div>
+          <div class="flow-step"><div class="step-num">4</div>Server parses the SMS and pushes alert to Rescue HQ dashboard</div>
+        </div>
+        <br>
+        <b>SMS Packet contains:</b> GPS coordinates, victim ID, timestamp, emergency type code, battery level — all in 160 characters.
+        <br><br>
+        <span class="tag purple">Works on 2G</span><span class="tag purple">160 bytes</span><span class="tag purple">BSNL/Airtel</span>
+      </div>
+    </div>
+
+    <!-- EMERGENCY OVERRIDE -->
+    <div class="learn-card red">
+      <div class="card-icon">🔴</div>
+      <div class="card-title">Emergency Override</div>
+      <div class="card-subtitle">When Everything Fails — Broadcast Mode</div>
+      <div class="card-body">
+        Emergency Override is the <b>last-resort protocol</b> activated when all normal channels fail — no mesh, no LoRa, no 2G signal.<br><br>
+        <b>What it does:</b>
+        <div class="flow-steps">
+          <div class="flow-step"><div class="step-num">1</div><b>Broadcasts SOS simultaneously</b> on ALL available channels — BT, LoRa, 2G, Wi-Fi, ultrasonic</div>
+          <div class="flow-step"><div class="step-num">2</div>Bypasses normal routing — goes <b>direct to all nodes</b> at max power</div>
+          <div class="flow-step"><div class="step-num">3</div><b>Flags priority CRITICAL</b> — rescue dashboard shows red alert, alarm sounds</div>
+          <div class="flow-step"><div class="step-num">4</div>Stores SOS locally — <b>retries every 30 seconds</b> until delivered</div>
+          <div class="flow-step"><div class="step-num">5</div>Nearby phones vibrate with <b>emergency notification</b> even without internet</div>
+        </div>
+        <br>
+        <b>Real-world use:</b> Landslide victim buried under debris. All towers down. Emergency Override keeps broadcasting until a rescue drone, vehicle, or person comes within range.
+        <br><br>
+        <span class="tag red">MAX POWER</span><span class="tag red">All Channels</span><span class="tag red">Auto-Retry</span>
+      </div>
+    </div>
+
+    <!-- VOICE SOS -->
+    <div class="learn-card green">
+      <div class="card-icon">🎤</div>
+      <div class="card-title">Voice SOS Input</div>
+      <div class="card-subtitle">For Low-Literacy & Panic Situations</div>
+      <div class="card-body">
+        Typing in a panic or with injured hands is hard. RescueNet allows users to <b>speak their emergency</b> — the app converts it to text automatically.<br><br>
+        <b>Why this matters in rural India:</b> Many farmers, tribal communities, and elderly people have <b>low literacy</b>. Typing "SOS at GPS 11.3°N" is impossible — but saying "Help! I fell near the waterfall" is natural.<br><br>
+        <b>Technical process:</b>
+        <div class="flow-steps">
+          <div class="flow-step"><div class="step-num">1</div>User holds button and speaks — app records 5–10 seconds of audio</div>
+          <div class="flow-step"><div class="step-num">2</div>On-device <b>speech-to-text</b> converts it (works offline — no cloud needed)</div>
+          <div class="flow-step"><div class="step-num">3</div>Text is <b>compressed and added</b> to SOS packet alongside GPS</div>
+          <div class="flow-step"><div class="step-num">4</div>Rescue HQ receives both the text and <b>the original audio file</b></div>
+        </div>
+        <br>
+        <b>Supported:</b> Tamil, Telugu, Hindi, English (offline models available for all).
+        <br><br>
+        <span class="tag green">Offline STT</span><span class="tag green">Tamil Support</span><span class="tag green">Audio Backup</span>
+      </div>
+    </div>
+
+    <!-- HYBRID AUTO-SELECT -->
+    <div class="learn-card yellow">
+      <div class="card-icon">🔄</div>
+      <div class="card-title">Hybrid Auto-Select Mode</div>
+      <div class="card-subtitle">The Brain — Picks Best Channel Automatically</div>
+      <div class="card-body">
+        RescueNet doesn't make users choose a mode. In Hybrid mode, <b>the app decides in real time</b> which channel gives the fastest, most reliable delivery.<br><br>
+        <b>Decision logic (runs every 5 seconds):</b>
+        <table class="spec-table">
+          <tr><td>Check 1</td><td>BT mesh peers available? → Use <b>Mesh</b></td></tr>
+          <tr><td>Check 2</td><td>LoRa node in range? → Use <b>LoRa</b></td></tr>
+          <tr><td>Check 3</td><td>2G signal detected? → Use <b>SMS Fallback</b></td></tr>
+          <tr><td>Check 4</td><td>Everything failed? → <b>Emergency Override</b></td></tr>
+        </table>
+        <br>
+        <b>Why it matters:</b> A hiker might start with Bluetooth mesh, walk deeper where only LoRa works, then descend to a valley with 2G. The app switches <b>automatically, seamlessly</b> — the user just presses SOS once.
+        <br><br>
+        <span class="tag yellow">Auto-Switch</span><span class="tag yellow">Real-Time</span><span class="tag yellow">Zero Config</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Comparison table -->
+  <h2 style="font-family:'Syne',sans-serif;font-size:1.1rem;color:var(--accent);margin-top:36px;">📊 Technology Comparison</h2>
+  <table class="compare-table" style="margin-top:12px;">
+    <tr>
+      <th>Feature</th>
+      <th>Bluetooth Mesh</th>
+      <th>LoRa Radio</th>
+      <th>2G SMS</th>
+      <th>Satellite Phone</th>
+    </tr>
+    <tr>
+      <td>Range</td>
+      <td class="mid">50–300m per hop</td>
+      <td class="good">5–15 km direct</td>
+      <td class="mid">Tower dependent</td>
+      <td class="good">Global</td>
+    </tr>
+    <tr>
+      <td>Cost (per node)</td>
+      <td class="good">Free (uses phones)</td>
+      <td class="good">₹800–₹2000</td>
+      <td class="good">SMS charges</td>
+      <td class="bad">₹50,000–₹2L</td>
+    </tr>
+    <tr>
+      <td>Internet needed?</td>
+      <td class="good">No</td>
+      <td class="good">No</td>
+      <td class="mid">No (2G only)</td>
+      <td class="good">No</td>
+    </tr>
+    <tr>
+      <td>Power usage</td>
+      <td class="good">Very low (BLE)</td>
+      <td class="good">Ultra-low (solar)</td>
+      <td class="mid">Medium</td>
+      <td class="bad">High</td>
+    </tr>
+    <tr>
+      <td>Setup difficulty</td>
+      <td class="good">App install only</td>
+      <td class="mid">Node installation</td>
+      <td class="good">Automatic</td>
+      <td class="bad">Complex + training</td>
+    </tr>
+    <tr>
+      <td>Works in deep forest?</td>
+      <td class="mid">If phones nearby</td>
+      <td class="good">Yes (high power)</td>
+      <td class="bad">Rarely</td>
+      <td class="good">Yes</td>
+    </tr>
+    <tr>
+      <td>Data type</td>
+      <td class="good">GPS + Voice + Text</td>
+      <td class="mid">GPS + Text only</td>
+      <td class="mid">GPS + Text</td>
+      <td class="good">Voice + Data</td>
+    </tr>
+    <tr>
+      <td>Accessible to poor?</td>
+      <td class="good">Yes</td>
+      <td class="good">Yes (community)</td>
+      <td class="good">Yes</td>
+      <td class="bad">No</td>
+    </tr>
+  </table>
+</div>
+</div>
+
+<!-- ═══════════════════ ARCHITECTURE PAGE ═══════════════════ -->
+<div id="page-arch" class="page">
+<div class="arch-page">
+  <div class="learn-title">🏗 System Architecture</div>
+  <div class="learn-sub">Layer-by-layer breakdown of RescueNet's design</div>
+
+  <div class="arch-flow">
+    <div class="arch-layer" style="border-color:var(--accent2)">
+      <div class="arch-icon">📱</div>
+      <div>
+        <div class="arch-name" style="color:var(--accent2)">Layer 1 — User Device (Input)</div>
+        <div class="arch-desc">
+          The victim's Android phone runs the <b>RescueNet app</b>. It collects GPS coordinates every 5 seconds, listens for voice input, monitors battery and signal levels, and generates the SOS packet. Works completely offline. The SOS packet is an encrypted 200-byte payload containing: victim ID, GPS, timestamp, emergency type, voice-to-text message, battery level, and hop counter. Even a ₹4000 Android phone can run this.
+        </div>
+        <div class="arch-tags"><span class="tag red">Android App</span><span class="tag red">Offline-first</span><span class="tag red">AES-128 Encrypted</span><span class="tag red">Offline STT</span></div>
+      </div>
+    </div>
+
+    <div class="arch-arrow">↓</div>
+
+    <div class="arch-layer" style="border-color:var(--accent4)">
+      <div class="arch-icon">🔀</div>
+      <div>
+        <div class="arch-name" style="color:var(--accent4)">Layer 2 — Multi-Protocol Transmission</div>
+        <div class="arch-desc">
+          This is RescueNet's core innovation. The app runs a <b>channel priority engine</b> that simultaneously scans for: (1) Bluetooth mesh peers, (2) LoRa node beacons, (3) 2G signal strength, (4) Wi-Fi hotspots. It selects the fastest available channel automatically. If all fail, Emergency Override broadcasts on all channels simultaneously at maximum power. Channel switching takes under 2 seconds.
+        </div>
+        <div class="arch-tags"><span class="tag cyan">BLE Mesh</span><span class="tag orange">LoRa 868MHz</span><span class="tag purple">2G SMS</span><span class="tag red">Override Broadcast</span></div>
+      </div>
+    </div>
+
+    <div class="arch-arrow">↓</div>
+
+    <div class="arch-layer" style="border-color:var(--lora)">
+      <div class="arch-icon">📡</div>
+      <div>
+        <div class="arch-name" style="color:var(--lora)">Layer 3 — LoRa Node Network (Infrastructure)</div>
+        <div class="arch-desc">
+          Solar-powered LoRa nodes (using ESP32 + SX1276 chip) are installed at key points: village entrances, forest trailheads, hilltops, river crossings. Each node costs ₹1200–₹1800 and runs for months on a small solar panel + battery. They receive SOS from both Bluetooth and LoRa, store it if the gateway is unreachable, and retransmit when connection is restored. Nodes also relay between each other — forming a <b>LoRaWAN backbone</b> across the entire region.
+        </div>
+        <div class="arch-tags"><span class="tag orange">ESP32+SX1276</span><span class="tag orange">Solar Powered</span><span class="tag orange">LoRaWAN</span><span class="tag orange">₹1500/node</span><span class="tag orange">Store & Forward</span></div>
+      </div>
+    </div>
+
+    <div class="arch-arrow">↓</div>
+
+    <div class="arch-layer" style="border-color:var(--accent3)">
+      <div class="arch-icon">🔗</div>
+      <div>
+        <div class="arch-name" style="color:var(--accent3)">Layer 4 — Gateway Node</div>
+        <div class="arch-desc">
+          The gateway is the bridge between the offline emergency network and the internet. It can be: a phone at the edge of network coverage, a LoRa base station with a 4G SIM, or even a school/panchayat office computer. The gateway receives packets from all sources (Bluetooth, LoRa, SMS), deduplicates them (in case all three channels delivered the same SOS), decrypts, validates, and pushes to the cloud server via HTTPS API. Average upload time: 0.3 seconds.
+        </div>
+        <div class="arch-tags"><span class="tag green">4G/Wi-Fi</span><span class="tag green">De-duplication</span><span class="tag green">HTTPS API</span><span class="tag green">Multi-source</span></div>
+      </div>
+    </div>
+
+    <div class="arch-arrow">↓</div>
+
+    <div class="arch-layer" style="border-color:var(--accent)">
+      <div class="arch-icon">☁</div>
+      <div>
+        <div class="arch-name" style="color:var(--accent)">Layer 5 — Cloud Server & Alert Engine</div>
+        <div class="arch-desc">
+          A lightweight Node.js/Python server (can run on ₹500/month VPS) receives all SOS alerts, stores them in a database, and immediately triggers: (1) SMS alert to all registered rescue volunteers in the area, (2) WhatsApp message to district control room, (3) Email to NDRF/SDRF teams, (4) Web dashboard update. The server also handles SMS-to-web conversion: when a 2G SMS arrives, it parses the 160-byte packet and converts it to a full alert with map link.
+        </div>
+        <div class="arch-tags"><span class="tag cyan">Node.js</span><span class="tag cyan">SMS Parser</span><span class="tag cyan">WhatsApp API</span><span class="tag cyan">₹500/month</span></div>
+      </div>
+    </div>
+
+    <div class="arch-arrow">↓</div>
+
+    <div class="arch-layer" style="border-color:var(--accent2)">
+      <div class="arch-icon">🚨</div>
+      <div>
+        <div class="arch-name" style="color:var(--accent2)">Layer 6 — Rescue HQ Dashboard</div>
+        <div class="arch-desc">
+          District rescue coordinators see a real-time web dashboard showing: all active SOS alerts on a map, victim GPS trail, transmission method used, time elapsed since SOS, estimated rescue time, and responder assignments. The dashboard works on any browser — laptop, tablet, or phone. It also shows which nodes are active/down across the entire network, helping pre-position resources during monsoon or disaster season.
+        </div>
+        <div class="arch-tags"><span class="tag red">Real-Time Map</span><span class="tag red">Responder Dispatch</span><span class="tag red">Network Health</span><span class="tag red">Any Browser</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:30px;padding:20px;background:rgba(0,229,255,.05);border:1px solid var(--border);border-radius:8px;font-size:.72rem;line-height:1.9;">
+    <b style="color:var(--accent);font-family:'Syne',sans-serif;font-size:.9rem;">💡 Key Design Principles</b><br><br>
+    <b>1. Offline-First:</b> Every layer works without internet. Internet only needed at the very last step (gateway → cloud).<br>
+    <b>2. Graceful Degradation:</b> If Mesh fails → LoRa. If LoRa fails → 2G. If 2G fails → Override. The system never gives up.<br>
+    <b>3. Zero User Training:</b> One button (SOS) is all victims need. The system handles all routing decisions automatically.<br>
+    <b>4. Low Cost at Scale:</b> A 50 km² forest zone needs ~8 LoRa nodes (₹12,000 total) + free mesh + ₹500/month server.<br>
+    <b>5. Existing Infrastructure:</b> Uses villagers' own phones as relay nodes. No new towers. No new cables. No permissions needed.
+  </div>
+</div>
+</div>
+
+<!-- ALERT POPUP -->
+<div class="alert-popup" id="alert-popup">
+  <span class="alert-close" onclick="closeAlert()">✕</span>
+  <div class="alert-title" id="alert-title">✅ RESCUE ALERT RECEIVED</div>
+  <div class="alert-body" id="alert-body"></div>
+</div>
+
+<script>
+  // ── STATE ──
+  let mode = 'mesh', scene = 'normal', running = false;
+  let sos=0, hops=0, del=0, loraTx=0, overrides=0;
+  let recording=false;
+
+  const voices = [
+    '"Help! I fell near the waterfall. Leg broken."',
+    '"Snake bite near north trail. 2 hikers need help!"',
+    '"Flash flood — village road submerged. Evacuate!"',
+    '"Lost in forest near Kolli Hills. GPS approx 11.3N."',
+    '"Elderly man collapsed near temple. Critical condition."'
+  ];
+  const locs = ['11.3°N 78.3°E — Kolli Hills','10.9°N 77.1°E — Valparai','11.8°N 79.7°E — Auroville','9.9°N 78.1°E — Cardamom Hills'];
+
+  // ── NAV ──
+  function showPage(p) {
+    document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.nav-tab').forEach(x=>x.classList.remove('active'));
+    document.getElementById('page-'+p).classList.add('active');
+    event.target.classList.add('active');
+  }
+
+  // ── SETTERS ──
+  function setMode(m) {
+    mode = m;
+    ['mesh','lora','sms','hybrid'].forEach(x=>{
+      const b = document.getElementById('mode-'+x);
+      if(b) b.classList.toggle('active', x===m);
+    });
+    document.getElementById('mode-pill').textContent =
+      m==='mesh'?'MESH MODE':m==='lora'?'LoRa MODE':m==='sms'?'2G SMS MODE':'HYBRID MODE';
+  }
+
+  function setScene(s) {
+    scene = s;
+    ['normal','partial','loraonly','smsonly','total'].forEach(x=>{
+      const b=document.getElementById('scene-'+x);
+      if(b) b.classList.toggle('active', x===s);
+    });
+    // reset all nodes
+    ['r1','r2','r3'].forEach(id=>{
+      document.getElementById('node-'+id).style.opacity='1';
+      document.getElementById('dn-'+id).style.opacity='0';
+    });
+    document.getElementById('sig-pill').textContent = 'NO COVERAGE';
+    document.getElementById('map-label').textContent = 'FOREST / HILL ZONE — ZERO NETWORK COVERAGE';
+
+    if(s==='partial'){
+      ['r2','r3'].forEach(id=>{
+        document.getElementById('node-'+id).style.opacity='0.3';
+        document.getElementById('dn-'+id).style.opacity='1';
+      });
+    } else if(s==='loraonly'){
+      ['r1','r2','r3'].forEach(id=>{
+        document.getElementById('node-'+id).style.opacity='0.3';
+        document.getElementById('dn-'+id).style.opacity='1';
+      });
+      document.getElementById('map-label').textContent = 'MESH FAILED — LoRa BACKBONE ACTIVE';
+    } else if(s==='smsonly'){
+      ['r1','r2','r3'].forEach(id=>{
+        document.getElementById('node-'+id).style.opacity='0.2';
+        document.getElementById('dn-'+id).style.opacity='1';
+      });
+      document.getElementById('node-lora').style.opacity='0.3';
+      document.getElementById('sig-pill').textContent = '2G WEAK';
+    } else if(s==='total'){
+      ['r1','r2','r3'].forEach(id=>{
+        document.getElementById('node-'+id).style.opacity='0.2';
+        document.getElementById('dn-'+id).style.opacity='1';
+      });
+      document.getElementById('node-lora').style.opacity='0.2';
+      document.getElementById('sig-pill').textContent = 'TOTAL BLACKOUT';
+      document.getElementById('map-label').textContent = '⚠ TOTAL BLACKOUT — OVERRIDE MODE REQUIRED';
+    } else {
+      document.getElementById('node-lora').style.opacity='1';
+    }
+  }
+
+  // ── LOG ──
+  function addLog(msg, type) {
+    const lb = document.getElementById('log-body');
+    const d = document.createElement('div');
+    d.className = 'log-entry '+(type||'');
+    const t = new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    d.innerHTML = `<span class="log-time">[${t}]</span> ${msg}`;
+    lb.appendChild(d); lb.scrollTop=lb.scrollHeight;
+  }
+  function clearLog() {
+    document.getElementById('log-body').innerHTML='<div class="log-entry" style="color:var(--muted);font-size:.62rem;">Log cleared.</div>';
+  }
+  function updStats() {
+    document.getElementById('s-sos').textContent=sos;
+    document.getElementById('s-hops').textContent=hops;
+    document.getElementById('s-del').textContent=del;
+    document.getElementById('s-lora').textContent=loraTx;
+    document.getElementById('s-ovr').textContent=overrides;
+  }
+
+  // ── PACKET ANIMATION ──
+  function animPkt(x1,y1,x2,y2,color,done) {
+    const p=document.getElementById('pkt');
+    p.setAttribute('cx',x1); p.setAttribute('cy',y1);
+    p.setAttribute('fill',color); p.setAttribute('r',color==='#ff8c00'?9:7);
+    p.setAttribute('opacity','1');
+    let t0=null, dur=900;
+    function s(ts){ if(!t0)t0=ts; const pr=Math.min((ts-t0)/dur,1);
+      p.setAttribute('cx',x1+(x2-x1)*pr); p.setAttribute('cy',y1+(y2-y1)*pr);
+      if(pr<1) requestAnimationFrame(s); else{p.setAttribute('opacity','0');if(done)done();}
+    }
+    requestAnimationFrame(s);
+  }
+
+  function showP(id,show){ const e=document.getElementById(id); if(e)e.style.opacity=show?'1':'0'; }
+
+  function pulseNode(id) {
+    const coords={user:[120,390],r1:[230,290],r2:[360,210],r3:[490,270],gw:[600,150],rescue:[640,390],lora:[200,360]};
+    const ring=document.getElementById('range-ring');
+    const c=coords[id]; if(!c) return;
+    ring.setAttribute('cx',c[0]); ring.setAttribute('cy',c[1]);
+    ring.setAttribute('r','0'); ring.setAttribute('opacity','0.8');
+    ring.setAttribute('stroke', id==='lora'?'#ff8c00':id==='rescue'?'#ff4d6d':'#00e5ff');
+    let t0=null;
+    function s(ts){ if(!t0)t0=ts; const pr=Math.min((ts-t0)/700,1);
+      ring.setAttribute('r',pr*60); ring.setAttribute('opacity',(1-pr)*0.8);
+      if(pr<1) requestAnimationFrame(s);
+    }
+    requestAnimationFrame(s);
+  }
+
+  function loraRangeAnim() {
+    const r=document.getElementById('lora-range');
+    r.setAttribute('r','0'); r.setAttribute('opacity','0.7');
+    let t0=null;
+    function s(ts){ if(!t0)t0=ts; const pr=Math.min((ts-t0)/1200,1);
+      r.setAttribute('r',pr*180); r.setAttribute('opacity',(1-pr)*0.7);
+      if(pr<1) requestAnimationFrame(s); else r.setAttribute('opacity','0');
+    }
+    requestAnimationFrame(s);
+  }
+
+  function resetPaths() {
+    ['p1','p2','p3','p4','p-alt1','p-alt2','p-lora','p-sms','p-cloud','ov1','ov2','ov3','ov4','ov5'].forEach(p=>showP(p,false));
+    document.getElementById('sms-badge').style.display='none';
+    document.getElementById('lora-badge').style.display='none';
+    document.getElementById('override-badge').style.display='none';
+    document.getElementById('sos-btn').classList.remove('active');
+    document.getElementById('lora-btn').classList.remove('active');
+    document.getElementById('override-btn').classList.remove('active');
+    running=false;
+  }
+
+  // ── TRIGGERS ──
+  function triggerSOS(voiceMsg) {
+    if(running) return;
+    running=true; sos++; updStats();
+    document.getElementById('sos-btn').classList.add('active');
+
+    const effectiveMode =
+      scene==='total' ? 'override' :
+      scene==='smsonly' ? 'sms' :
+      scene==='loraonly' ? 'lora' :
+      (mode==='hybrid') ? (scene==='partial'?'lora':'mesh') :
+      mode;
+
+    if(effectiveMode==='lora') runLoRa(voiceMsg);
+    else if(effectiveMode==='sms') runSMS(voiceMsg);
+    else if(effectiveMode==='override') runOverride(voiceMsg);
+    else runMesh(voiceMsg);
+  }
+
+  function triggerVoice() {
+    if(running||recording) return;
+    recording=true;
+    const btn=document.getElementById('voice-btn');
+    const vt=document.getElementById('vtranscript');
+    btn.classList.add('recording');
+    btn.innerHTML=`<div class="vbar"><span></span><span></span><span></span><span></span><span></span></div> RECORDING...`;
+    vt.style.display='none';
+    const msg=voices[Math.floor(Math.random()*voices.length)];
+    addLog('🎤 Voice SOS activated — recording...','sos');
+    setTimeout(()=>{
+      recording=false;
+      btn.classList.remove('recording');
+      btn.innerHTML='🎤 VOICE SOS';
+      vt.style.display='block';
+      vt.innerHTML=`<span style="color:var(--muted)">Decoded: </span>${msg}`;
+      addLog(`🔊 Speech-to-text decoded: ${msg}`,'sos');
+      setTimeout(()=>triggerSOS(msg),400);
+    },2500);
+  }
+
+  function triggerLoRa() {
+    if(running) return;
+    running=true; loraTx++; sos++; updStats();
+    document.getElementById('lora-btn').classList.add('active');
+    runLoRa(null, true);
+  }
+
+  function triggerOverride() {
+    if(running) return;
+    running=true; overrides++; sos++; updStats();
+    document.getElementById('override-btn').classList.add('active');
+    runOverride(null, true);
+  }
+
+  // ── SIMULATIONS ──
+  function runMesh(voiceMsg) {
+    const C={user:[120,390],r1:[230,290],r2:[360,210],r3:[490,270],gw:[600,150],rescue:[640,390]};
+    const N={user:'VICTIM PHONE',r1:'BT RELAY 1',r2:'BT RELAY 2',r3:'BT RELAY 3',gw:'GATEWAY',rescue:'RESCUE HQ'};
+    const isPartial = scene==='partial';
+    const hopList = isPartial ? [['user','r1'],['r1','gw']] : [['user','r1'],['r1','r2'],['r2','r3'],['r3','gw']];
+    const pathIds = isPartial ? ['p-alt1','p-alt2'] : ['p1','p2','p3','p4'];
+
+    const t0=Date.now();
+    addLog(`📱 SOS triggered${voiceMsg?' (VOICE)':''} — Bluetooth mesh initiated`,'sos');
+    if(voiceMsg) addLog(`🎤 Voice message attached to packet`,'sos');
+    if(isPartial) addLog(`⚠ 2 relay nodes offline — finding alternate route...`,'relay');
+    addLog(`📦 SOS packet: GPS + ID + timestamp + ${voiceMsg?'voice+':''}emergency code`,'relay');
+    pulseNode('user');
+
+    let step=0;
+    function nextHop(){
+      if(step>=hopList.length){
+        showP('p-cloud',true);
+        setTimeout(()=>{
+          animPkt(C.gw[0],C.gw[1],C.rescue[0],C.rescue[1],'#39ff14',()=>{
+            pulseNode('rescue');
+            hops+=hopList.length; del++; updStats();
+            const lat=((Date.now()-t0)/1000).toFixed(1);
+            document.getElementById('s-time').textContent=lat+'s';
+            addLog(`✅ DELIVERED to RESCUE HQ via ${hopList.length} mesh hops`,'rescue');
+            addLog(`⏱ Total latency: ${lat}s`,'rescue');
+            showAlert('✅ MESH DELIVERED', 'Bluetooth Mesh', hopList.length, lat, voiceMsg, 'normal');
+            setTimeout(resetPaths,3500);
+          });
+        },400);
+        return;
+      }
+      const [fr,to]=hopList[step]; const pid=pathIds[step];
+      showP(pid,true);
+      setTimeout(()=>{
+        animPkt(C[fr][0],C[fr][1],C[to][0],C[to][1],'#ffbe00',()=>{
+          pulseNode(to);
+          addLog(`↗ Hop ${step+1}: ${N[fr]} → ${N[to]} (BLE)`,'relay');
+          step++; setTimeout(nextHop,350);
+        });
+      },200);
+    }
+    setTimeout(nextHop,600);
+  }
+
+  function runLoRa(voiceMsg, direct=false) {
+    document.getElementById('lora-badge').style.display='block';
+    if(!document.getElementById('lora-btn').classList.contains('active'))
+      document.getElementById('lora-btn').classList.add('active');
+    loraTx++;
+    const t0=Date.now();
+    addLog(`📡 LoRa transmission initiated — scanning 865–867 MHz band`,'lora');
+    addLog(`📦 Compressing payload → 220 bytes (GPS + emergency code + ID)`,'lora');
+    pulseNode('user'); loraRangeAnim();
+
+    setTimeout(()=>{
+      addLog(`📡 LoRa NODE detected at 200m — signal strength -95 dBm`,'lora');
+      addLog(`🔁 Packet relayed to LoRa backbone — estimated range 8.3km`,'lora');
+      showP('p-lora',true);
+      setTimeout(()=>{
+        animPkt(120,390,600,150,'#ff8c00',()=>{
+          pulseNode('gw');
+          addLog(`🔗 Gateway received LoRa packet — pushing to cloud`,'gateway');
+          showP('p-cloud',true);
+          setTimeout(()=>{
+            animPkt(600,150,640,390,'#39ff14',()=>{
+              pulseNode('rescue');
+              hops+=2; del++; updStats();
+              const lat=((Date.now()-t0)/1000).toFixed(1);
+              document.getElementById('s-time').textContent=lat+'s';
+              addLog(`✅ DELIVERED via LoRa — range covered: ~8km`,'rescue');
+              addLog(`⏱ Latency: ${lat}s | Power used: ~20mW`,'rescue');
+              showAlert('📡 LoRa DELIVERED', 'LoRa Long-Range Radio', 2, lat, voiceMsg, 'lora');
+              setTimeout(resetPaths,3500);
+            });
+          },400);
+        });
+      },1500);
+    },1000);
+  }
+
+  function runSMS(voiceMsg) {
+    document.getElementById('sms-badge').style.display='block';
+    const t0=Date.now();
+    addLog(`📱 All mesh channels unavailable — scanning for 2G...`,'sms');
+    pulseNode('user');
+    setTimeout(()=>{
+      addLog(`📶 2G signal found: BSNL roaming (-108 dBm) — very weak but usable`,'sms');
+      addLog(`📦 Compressing SOS → 158 bytes (fits in 1 SMS)`,'sms');
+      addLog(`🔢 Packet: [VIC:4821|GPS:11.34N78.37E|BATT:43|TYPE:01|TS:${Math.floor(Date.now()/1000)}]`,'sms');
+      showP('p-sms',true);
+      setTimeout(()=>{
+        animPkt(120,390,600,150,'#a855f7',()=>{
+          pulseNode('gw');
+          addLog(`✉ SMS delivered to gateway server — parsing packet`,'sms');
+          addLog(`🔁 Server decoded: GPS mapped, victim ID resolved, alert triggered`,'sms');
+          showP('p-cloud',true);
+          setTimeout(()=>{
+            animPkt(600,150,640,390,'#39ff14',()=>{
+              pulseNode('rescue');
+              hops+=1; del++; updStats();
+              const lat=((Date.now()-t0)/1000).toFixed(1);
+              document.getElementById('s-time').textContent=lat+'s';
+              addLog(`✅ DELIVERED via 2G SMS fallback`,'rescue');
+              addLog(`⏱ Latency: ${lat}s | SMS cost: ₹0.10`,'rescue');
+              showAlert('✉ 2G SMS DELIVERED', '2G SMS Fallback', 1, lat, voiceMsg, 'sms');
+              setTimeout(resetPaths,3500);
+            });
+          },400);
+        });
+      },1400);
+    },900);
+  }
+
+  function runOverride(voiceMsg, direct=false) {
+    document.getElementById('override-badge').style.display='block';
+    document.getElementById('override-btn').classList.add('active');
+    overrides++;
+    const t0=Date.now();
+    addLog(`🔴 EMERGENCY OVERRIDE ACTIVATED — ALL CHANNELS BROADCAST`,'override');
+    addLog(`⚡ Priority: CRITICAL | Bypassing normal routing protocols`,'override');
+    addLog(`📡 Broadcasting simultaneously: BLE + LoRa + 2G + Wi-Fi scan`,'override');
+    pulseNode('user');
+
+    // Broadcast all lines
+    ['ov1','ov2','ov3','ov4','ov5'].forEach((id,i)=>{
+      setTimeout(()=>showP(id,true),i*120);
+    });
+
+    const ovTargets=[
+      [230,290,'#a855f7','BT RELAY 1 woken by override broadcast'],
+      [360,210,'#a855f7','BT RELAY 2 emergency ping received'],
+      [490,270,'#a855f7','BT RELAY 3 override signal detected'],
+      [600,150,'#a855f7','GATEWAY — override packet received via LoRa'],
+      [640,390,'#a855f7','RESCUE HQ — CRITICAL ALERT triggered'],
+    ];
+
+    let i=0;
+    function next(){
+      if(i>=ovTargets.length){
+        pulseNode('rescue');
+        hops+=5; del++; updStats();
+        const lat=((Date.now()-t0)/1000).toFixed(1);
+        document.getElementById('s-time').textContent=lat+'s';
+        addLog(`🚨 OVERRIDE DELIVERED — All nodes alerted simultaneously`,'override');
+        addLog(`🔁 Auto-retry armed: will re-broadcast every 30s until acknowledged`,'override');
+        addLog(`⏱ Override latency: ${lat}s`,'override');
+        showAlert('🔴 OVERRIDE DELIVERED', 'Emergency Override (All Channels)', 5, lat, voiceMsg, 'override');
+        setTimeout(resetPaths,4000);
+        return;
+      }
+      const [x,y,c,msg]=ovTargets[i];
+      setTimeout(()=>{
+        animPkt(120,390,x,y,c,()=>{
+          addLog(`⚡ ${msg}`,'override');
+          i++; next();
+        });
+      },i===0?800:400);
+    }
+    setTimeout(next,500);
+  }
+
+  function showAlert(title, method, h, latency, voiceMsg, type) {
+    const p=document.getElementById('alert-popup');
+    const loc=locs[Math.floor(Math.random()*locs.length)];
+    p.className='alert-popup '+(type==='lora'?'lora-alert':type==='override'?'override-alert':'');
+    document.getElementById('alert-title').textContent=title;
+    document.getElementById('alert-body').innerHTML=
+      `<b>Method:</b> ${method}<br>
+      <b>Hops/Channels:</b> ${h}<br>
+      <b>Latency:</b> ${latency}s<br>
+      <b>Location:</b> ${loc}<br>
+      ${voiceMsg?'<b>Voice:</b> '+voiceMsg+'<br>':''}
+      <b>Status:</b> Rescue team dispatched 🚁<br>
+      <b>ETA:</b> ~${Math.floor(Math.random()*15+5)} minutes`;
+    p.classList.add('show');
+    setTimeout(()=>p.classList.remove('show'),7000);
+  }
+  function closeAlert(){ document.getElementById('alert-popup').classList.remove('show'); }
+
+  function nodeInfo(id) {
+    const info={
+      user:'📱 VICTIM PHONE — BLE 5.0 broadcast + LoRa trigger. Generates 200-byte AES-128 encrypted SOS packet with GPS, voice, battery, hop counter.',
+      r1:'📶 BT RELAY 1 — Villager\'s phone. Receives and re-broadcasts SOS via BLE. No internet needed. Range: ~80m per hop.',
+      r2:'📶 BT RELAY 2 — Any phone in the area acts as relay. The more people, the stronger the mesh network.',
+      r3:'📶 BT RELAY 3 — Final relay before gateway zone. Adds timestamp and validates hop count.',
+      lora:'📡 LoRa NODE — Solar + ESP32 + SX1276 chip. 865MHz. Range: 5–15km. Cost: ₹1500. Runs months on solar. Stores SOS if gateway unreachable.',
+      gw:'🔗 GATEWAY — First internet point. Receives from BT mesh, LoRa, and SMS. Deduplicates packets. Pushes to cloud via HTTPS API in 0.3s.',
+      rescue:'🚨 RESCUE HQ — Real-time dashboard. Shows victim GPS, route taken, transmission method, time elapsed, and assigns responders.'
+    };
+    addLog(`ℹ ${info[id]||'Unknown node'}`, '');
+  }
+
+  // Init
+  addLog('RescueNet 2.0 initialized — 4 transmission modes ready.','');
+  addLog('Click any node on the map for detailed info.','');
+  addLog('Use the "How It Works" tab to understand each technology.','');
+</script>
+</body>
+</html>
